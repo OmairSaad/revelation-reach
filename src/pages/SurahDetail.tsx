@@ -7,16 +7,18 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft, BookOpen, Volume2, Bookmark } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pause, Play } from 'lucide-react';
+import { Pause, Play, Square } from 'lucide-react';
 
 const SurahDetail = () => {
   const { surahNumber } = useParams<{ surahNumber: string }>();
   const [selectedEdition, setSelectedEdition] = useState('en.asad');
   const [bookmarkedAyahs, setBookmarkedAyahs] = useState<Set<number>>(new Set());
   const [playingAyah, setPlayingAyah] = useState<number | null>(null);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ayahRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
   const { data: surahData, isLoading, error } = useQuery({
     queryKey: ['surah', surahNumber, selectedEdition],
@@ -40,6 +42,13 @@ const SurahDetail = () => {
     });
   };
 
+  const scrollToAyah = (ayahNumber: number) => {
+    const element = ayahRefs.current[ayahNumber];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   const playAudio = (audioUrl: string, ayahNumber: number) => {
     if (playingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
@@ -51,9 +60,47 @@ const SurahDetail = () => {
       audioRef.current = new Audio(audioUrl);
       audioRef.current.play();
       setPlayingAyah(ayahNumber);
-      audioRef.current.onended = () => setPlayingAyah(null);
+      scrollToAyah(ayahNumber);
+      audioRef.current.onended = () => {
+        setPlayingAyah(null);
+        if (isAutoPlaying && audioSurah) {
+          const currentIndex = audioSurah.ayahs.findIndex(a => a.numberInSurah === ayahNumber);
+          if (currentIndex < audioSurah.ayahs.length - 1) {
+            const nextAyah = audioSurah.ayahs[currentIndex + 1];
+            setTimeout(() => playAudio(nextAyah.audio!, nextAyah.numberInSurah), 500);
+          } else {
+            setIsAutoPlaying(false);
+          }
+        }
+      };
     }
   };
+
+  const startAutoPlay = () => {
+    if (!audioSurah || audioSurah.ayahs.length === 0) return;
+    
+    setIsAutoPlaying(true);
+    const firstAyah = audioSurah.ayahs[0];
+    if (firstAyah.audio) {
+      playAudio(firstAyah.audio, firstAyah.numberInSurah);
+    }
+  };
+
+  const stopAutoPlay = () => {
+    setIsAutoPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setPlayingAyah(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
 
   if (error) {
     return (
@@ -118,24 +165,48 @@ const SurahDetail = () => {
                 </div>
               </Card>
 
-              {/* Translation Selector */}
+              {/* Controls */}
               <Card className="p-4 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Translation:
-                  </span>
-                  <Select value={selectedEdition} onValueChange={setSelectedEdition}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en.asad">Muhammad Asad</SelectItem>
-                      <SelectItem value="en.pickthall">Marmaduke Pickthall</SelectItem>
-                      <SelectItem value="en.sahih">Sahih International</SelectItem>
-                      <SelectItem value="en.yusufali">Yusuf Ali</SelectItem>
-                      <SelectItem value="en.hilali">Hilali & Khan</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Translation:
+                    </span>
+                    <Select value={selectedEdition} onValueChange={setSelectedEdition}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en.asad">Muhammad Asad</SelectItem>
+                        <SelectItem value="en.pickthall">Marmaduke Pickthall</SelectItem>
+                        <SelectItem value="en.sahih">Sahih International</SelectItem>
+                        <SelectItem value="en.yusufali">Yusuf Ali</SelectItem>
+                        <SelectItem value="en.hilali">Hilali & Khan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {!isAutoPlaying ? (
+                      <Button 
+                        onClick={startAutoPlay}
+                        className="gap-2"
+                        disabled={!audioSurah}
+                      >
+                        <Play className="h-4 w-4" />
+                        Play Surah
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={stopAutoPlay}
+                        variant="destructive"
+                        className="gap-2"
+                      >
+                        <Square className="h-4 w-4" />
+                        Stop
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
 
@@ -163,7 +234,10 @@ const SurahDetail = () => {
                   return (
                     <Card
                       key={ayah.number}
-                      className="p-6 space-y-4 hover:shadow-lg transition-shadow animate-fade-in"
+                      ref={(el) => (ayahRefs.current[ayah.numberInSurah] = el)}
+                      className={`p-6 space-y-4 hover:shadow-lg transition-all animate-fade-in ${
+                        isPlaying ? 'ring-2 ring-primary shadow-xl scale-[1.02]' : ''
+                      }`}
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       <div className="flex items-start justify-between gap-4">

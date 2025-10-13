@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, Search, Bookmark, Menu, Home } from 'lucide-react';
+import { BookOpen, Search, Bookmark, Menu, Home, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -13,6 +13,7 @@ const Navbar = () => {
   const navItems = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Browse', path: '/browse', icon: BookOpen },
+    { name: 'Pages', path: '/page/1', icon: FileText },
     { name: 'Search', path: '/search', icon: Search },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark },
   ];

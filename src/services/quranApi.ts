@@ -66,6 +66,14 @@ export const quranApi = {
     return data.data;
   },
 
+  // Get page with multiple editions
+  getPageMultipleEditions: async (pageNumber: number, editions: string[]): Promise<{ number: number; ayahs: Ayah[] }[]> => {
+    const editionsStr = editions.join(',');
+    const response = await fetch(`${BASE_URL}/page/${pageNumber}/editions/${editionsStr}`);
+    const data: QuranResponse<{ number: number; ayahs: Ayah[] }[]> = await response.json();
+    return data.data;
+  },
+
   // Get sajda ayahs
   getSajdaAyahs: async (edition: string = 'quran-uthmani'): Promise<{ ayahs: Ayah[] }> => {
     const response = await fetch(`${BASE_URL}/sajda/${edition}`);

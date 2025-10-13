@@ -7,22 +7,26 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft, BookOpen, Volume2, Bookmark } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Pause, Play } from 'lucide-react';
 
 const SurahDetail = () => {
   const { surahNumber } = useParams<{ surahNumber: string }>();
   const [selectedEdition, setSelectedEdition] = useState('en.asad');
   const [bookmarkedAyahs, setBookmarkedAyahs] = useState<Set<number>>(new Set());
+  const [playingAyah, setPlayingAyah] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: surahData, isLoading, error } = useQuery({
     queryKey: ['surah', surahNumber, selectedEdition],
-    queryFn: () => quranApi.getSurahMultipleEditions(Number(surahNumber), ['quran-uthmani', selectedEdition]),
+    queryFn: () => quranApi.getSurahMultipleEditions(Number(surahNumber), ['quran-uthmani', selectedEdition, 'ar.alafasy']),
     enabled: !!surahNumber,
   });
 
   const arabicSurah = surahData?.[0];
   const translationSurah = surahData?.[1];
+  const audioSurah = surahData?.[2];
 
   const toggleBookmark = (ayahNumber: number) => {
     setBookmarkedAyahs(prev => {
@@ -34,6 +38,21 @@ const SurahDetail = () => {
       }
       return newSet;
     });
+  };
+
+  const playAudio = (audioUrl: string, ayahNumber: number) => {
+    if (playingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setPlayingAyah(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.play();
+      setPlayingAyah(ayahNumber);
+      audioRef.current.onended = () => setPlayingAyah(null);
+    }
   };
 
   if (error) {
@@ -136,7 +155,10 @@ const SurahDetail = () => {
               <div className="space-y-4">
                 {arabicSurah.ayahs.map((ayah, index) => {
                   const translation = translationSurah?.ayahs[index];
+                  const audioAyah = audioSurah?.ayahs[index];
                   const isBookmarked = bookmarkedAyahs.has(ayah.numberInSurah);
+                  const isPlaying = playingAyah === ayah.numberInSurah;
+                  const showHizbQuarter = index === 0 || ayah.hizbQuarter !== arabicSurah.ayahs[index - 1]?.hizbQuarter;
                   
                   return (
                     <Card
@@ -152,10 +174,18 @@ const SurahDetail = () => {
                         </div>
                         
                         <div className="flex-1 space-y-4">
-                          {/* Arabic Text */}
-                          <p className="text-2xl md:text-3xl leading-loose text-right text-foreground" dir="rtl">
-                            {ayah.text}
-                          </p>
+                          {/* Arabic Text with Rub al Hizb */}
+                          <div className="text-right" dir="rtl">
+                            <p className="text-2xl md:text-3xl leading-loose text-foreground font-quran inline">
+                              {ayah.text}
+                            </p>
+                            {showHizbQuarter && (
+                              <span className="inline-flex items-center gap-1 mx-2 text-primary">
+                                <span className="text-3xl">۞</span>
+                                <span className="text-sm font-sans">{ayah.hizbQuarter}</span>
+                              </span>
+                            )}
+                          </div>
                           
                           {/* Translation */}
                           {translation && (
@@ -173,9 +203,13 @@ const SurahDetail = () => {
                           >
                             <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
                           </Button>
-                          {ayah.audio && (
-                            <Button variant="outline" size="icon">
-                              <Volume2 className="h-4 w-4" />
+                          {audioAyah?.audio && (
+                            <Button 
+                              variant={isPlaying ? 'default' : 'outline'} 
+                              size="icon"
+                              onClick={() => playAudio(audioAyah.audio!, ayah.numberInSurah)}
+                            >
+                              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                             </Button>
                           )}
                         </div>

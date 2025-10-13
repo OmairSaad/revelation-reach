@@ -10,6 +10,7 @@ import { AlertCircle, ArrowLeft, BookOpen, Volume2, Bookmark } from 'lucide-reac
 import { useState, useRef, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pause, Play, Square } from 'lucide-react';
+import AyahSymbol from '@/components/ui/ayahSymbol';
 
 const SurahDetail = () => {
   const { surahNumber } = useParams<{ surahNumber: string }>();
@@ -42,6 +43,12 @@ const SurahDetail = () => {
     });
   };
 
+  const isAutoPlayingRef = useRef(isAutoPlaying);
+  useEffect(() => {
+    isAutoPlayingRef.current = isAutoPlaying;
+  }, [isAutoPlaying]);
+
+
   const scrollToAyah = (ayahNumber: number) => {
     const element = ayahRefs.current[ayahNumber];
     if (element) {
@@ -53,54 +60,69 @@ const SurahDetail = () => {
     if (playingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
       setPlayingAyah(null);
-    } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play();
-      setPlayingAyah(ayahNumber);
-      scrollToAyah(ayahNumber);
-      audioRef.current.onended = () => {
-        setPlayingAyah(null);
-        if (isAutoPlaying && audioSurah) {
-          const currentIndex = audioSurah.ayahs.findIndex(a => a.numberInSurah === ayahNumber);
-          if (currentIndex < audioSurah.ayahs.length - 1) {
-            const nextAyah = audioSurah.ayahs[currentIndex + 1];
-            setTimeout(() => playAudio(nextAyah.audio!, nextAyah.numberInSurah), 500);
-          } else {
-            setIsAutoPlaying(false);
-          }
-        }
-      };
+      return;
     }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const newAudio = new Audio(audioUrl);
+    audioRef.current = newAudio;
+    newAudio.play();
+    setPlayingAyah(ayahNumber);
+    scrollToAyah(ayahNumber);
+
+    newAudio.onended = () => {
+      setPlayingAyah(null);
+
+      // ✅ Always use latest ref state, not stale closure
+      if (isAutoPlayingRef.current && audioSurah) {
+        const currentIndex = audioSurah.ayahs.findIndex(
+          (a) => a.numberInSurah === ayahNumber
+        );
+        const nextAyah = audioSurah.ayahs[currentIndex + 1];
+        if (nextAyah?.audio) {
+          setTimeout(() => {
+            playAudio(nextAyah.audio!, nextAyah.numberInSurah);
+          }, 500);
+        } else {
+          setIsAutoPlaying(false);
+        }
+      }
+    };
   };
+
+
 
   const startAutoPlay = () => {
     if (!audioSurah || audioSurah.ayahs.length === 0) return;
-    
     setIsAutoPlaying(true);
     const firstAyah = audioSurah.ayahs[0];
-    if (firstAyah.audio) {
-      playAudio(firstAyah.audio, firstAyah.numberInSurah);
-    }
+    if (firstAyah.audio) playAudio(firstAyah.audio, firstAyah.numberInSurah);
   };
 
   const stopAutoPlay = () => {
     setIsAutoPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setPlayingAyah(null);
-    }
+    if (audioRef.current) audioRef.current.pause();
+    setPlayingAyah(null);
   };
 
+
   useEffect(() => {
+    console.log(arabicSurah);
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
     };
   }, []);
+
+  function toArabicNumber(num: number) {
+    return num
+      .toString()
+      .replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
+  }
 
   if (error) {
     return (
@@ -185,10 +207,10 @@ const SurahDetail = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {!isAutoPlaying ? (
-                      <Button 
+                      <Button
                         onClick={startAutoPlay}
                         className="gap-2"
                         disabled={!audioSurah}
@@ -197,7 +219,7 @@ const SurahDetail = () => {
                         Play Surah
                       </Button>
                     ) : (
-                      <Button 
+                      <Button
                         onClick={stopAutoPlay}
                         variant="destructive"
                         className="gap-2"
@@ -230,14 +252,13 @@ const SurahDetail = () => {
                   const isBookmarked = bookmarkedAyahs.has(ayah.numberInSurah);
                   const isPlaying = playingAyah === ayah.numberInSurah;
                   const showHizbQuarter = index === 0 || ayah.hizbQuarter !== arabicSurah.ayahs[index - 1]?.hizbQuarter;
-                  
+
                   return (
                     <Card
                       key={ayah.number}
                       ref={(el) => (ayahRefs.current[ayah.numberInSurah] = el)}
-                      className={`p-6 space-y-4 hover:shadow-lg transition-all animate-fade-in ${
-                        isPlaying ? 'ring-2 ring-primary shadow-xl scale-[1.02]' : ''
-                      }`}
+                      className={`p-6 space-y-4 hover:shadow-lg transition-all animate-fade-in ${isPlaying ? 'ring-2 ring-primary shadow-xl scale-[1.02]' : ''
+                        }`}
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -246,24 +267,23 @@ const SurahDetail = () => {
                             {ayah.numberInSurah}
                           </div>
                         </div>
-                        
+
                         <div className="flex-1 space-y-4">
                           {/* Arabic Text with Rub al Hizb */}
                           <div className="text-right" dir="rtl">
                             <p className="text-2xl md:text-3xl leading-loose text-foreground font-quran inline">
-                              {ayah.text}
+                              {
+                                ayah.numberInSurah === 1 ? ayah.text.split('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ')[1] : ayah.text
+                              }
                             </p>
-                            {showHizbQuarter && (
-                              <span className="inline-flex items-center gap-1 mx-2 text-primary">
-                                <span className="text-3xl">۞</span>
-                                <span className="text-sm font-sans">{ayah.hizbQuarter}</span>
-                              </span>
-                            )}
+
+                            {/* Rub el Hizb symbol with ayah number (display after each ayah) */}
+                            <AyahSymbol number={ayah.numberInSurah} />
                           </div>
-                          
+
                           {/* Translation */}
                           {translation && (
-                            <p className="text-base md:text-lg text-muted-foreground leading-relaxed border-t pt-4">
+                            <p className="text-base md:text-lg text-muted-foreground leading-relaxed mt-3 border-t border-muted/30 pt-4 italic tracking-wide bg-gradient-to-r from-muted/20 to-transparent rounded-md px-3 py-2">
                               {translation.text}
                             </p>
                           )}
@@ -278,8 +298,8 @@ const SurahDetail = () => {
                             <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
                           </Button>
                           {audioAyah?.audio && (
-                            <Button 
-                              variant={isPlaying ? 'default' : 'outline'} 
+                            <Button
+                              variant={isPlaying ? 'default' : 'outline'}
                               size="icon"
                               onClick={() => playAudio(audioAyah.audio!, ayah.numberInSurah)}
                             >

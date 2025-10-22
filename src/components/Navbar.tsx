@@ -13,7 +13,7 @@ const Navbar = () => {
   const navItems = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Browse', path: '/browse', icon: BookOpen },
-    { name: 'Pages', path: '/page/1', icon: FileText },
+    { name: 'Pages', path: '/juz', icon: FileText },
     { name: 'Search', path: '/search', icon: Search },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark },
   ];

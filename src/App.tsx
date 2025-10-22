@@ -26,7 +26,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/surah/:surahNumber" element={<SurahDetail />} />
-            <Route path="/page/:pageNumber" element={<PageView />} />
+            <Route path="/juz/" element={<PageView />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

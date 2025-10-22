@@ -273,7 +273,7 @@ const SurahDetail = () => {
                           <div className="text-right" dir="rtl">
                             <p className="text-2xl md:text-3xl leading-loose text-foreground font-quran inline">
                               {
-                                ayah.numberInSurah === 1 ? ayah.text.split('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ')[1] : ayah.text
+                                ayah.numberInSurah  === 1 && (arabicSurah.number!=1 && arabicSurah.number!=9) ? ayah.text.split('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ')[1] : ayah.text
                               }
                             </p>
 
